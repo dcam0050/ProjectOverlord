@@ -1,0 +1,12 @@
+## Copy this file to local.properties and add your API keys
+## This file is gitignored and should not be committed
+
+# Google Maps API Key (for Routes and Places APIs)
+GOOGLE_MAPS_API_KEY=your_google_maps_api_key_here
+
+# Spotify Client ID (from Spotify Developer Dashboard)
+SPOTIFY_CLIENT_ID=your_spotify_client_id_here
+
+# Spotify Redirect URI (must match Spotify app settings)
+SPOTIFY_REDIRECT_URI=com.666Productions.Overlord://callback
+

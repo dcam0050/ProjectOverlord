@@ -1,0 +1,523 @@
+App Development Brief — “Transit Alarm” (Kotlin + Jetpack Compose + Spotify)
+1. Core Product Definition
+
+Goal:
+An Android app that ensures users don’t miss their public-transport departure by using:
+
+Public transit routing (via Google APIs)
+
+A multi-stage alarm system (wake up → get out of bed → leave the building)
+
+Strong, intrusive alarm UX: full-screen, sound, vibration, Spotify-based tones
+
+Key idea:
+“Hybrid model”: our app handles planning + alarms, Google Maps handles live navigation.
+
+2. High-Level Architecture
+2.1 Layers
+
+Presentation Layer (Jetpack Compose)
+
+Screens:
+
+Onboarding
+
+Origin / Destination input
+
+Route list
+
+Route details
+
+Alarm configuration
+
+Settings
+
+Full-screen alarm screen
+
+Domain Layer
+
+Use cases:
+
+PlanTransitRoute
+
+CreateAlarmScheduleForJourney
+
+ScheduleAlarms
+
+ManageAlarmProfiles (local sounds / Spotify)
+
+Business rules:
+
+Alarm offsets, types, auto-stop behaviour
+
+Data Layer
+
+Repositories:
+
+RoutingRepository (Google Routes/Directions API)
+
+PlacesRepository (Google Places Autocomplete)
+
+AlarmRepository (local DB for alarm definitions)
+
+SpotifyRepository (Spotify auth + playback control)
+
+Local storage:
+
+Room DB for saved journeys, alarm profiles, settings
+
+Native Alarm Engine (core system)
+
+AlarmManager + BroadcastReceiver
+
+Foreground Service for alarm playback
+
+Full-screen Activity for alarm UI
+
+Notification channels + DND behaviour
+
+3. Core Features & Flows
+3.1 Transit Planning
+
+User flow:
+
+User sets origin:
+
+Options: “Current location”, saved locations, manual address
+
+FusedLocationProviderClient for GPS
+
+User sets destination:
+
+Text input with Places Autocomplete
+
+Minimal results list (name + address)
+
+User selects time context:
+
+“Leave now”
+
+“Arrive by [time]”
+
+“Depart at [time]”
+
+App calls Google Routes/Directions API (transit mode):
+
+Inputs: origin, destination, time, mode=transit
+
+Parse response into internal model:
+
+Itineraries
+
+Departure time / arrival time
+
+Legs (walk / bus / train)
+
+First transit departure time
+
+Walking duration to first stop
+
+Responsibilities:
+
+RoutingRepository:
+
+Builds HTTP requests, handles API key
+
+Maps JSON to Route, Leg, Stop, etc. domain models
+
+Handles errors (no transit available, network, etc.)
+
+3.2 Journey & Alarm Planning
+
+Once user selects a route, app computes an alarm schedule.
+
+Example for a journey departing at 08:12:
+
+Alarm A: “Wake up” – 06:45
+
+Alarm B: “Get out of bed” – 07:00
+
+Alarm C: “Leave the building” – 07:40
+
+Each alarm has:
+
+time: Instant
+
+type: WAKE_UP | GET_OUT_OF_BED | LEAVE_HOME | CUSTOM
+
+profileId: references alarm sound behaviour (local/Spotify)
+
+requiresUserDismiss: Boolean
+
+autoStopAfterMillis: Long? (null = no auto-stop)
+
+label: “Train to London 08:12”
+
+Use cases:
+
+CreateAlarmScheduleForJourney(route: Route, config: AlarmConfig): List<AlarmInstance>
+
+UI:
+
+Screen showing the route summary + generated alarms.
+
+User can adjust offsets per stage (e.g. “Wake up 10 minutes earlier”).
+
+3.3 Alarm Engine (native Android)
+
+This is critical and must be robust.
+
+3.3.1 Scheduling
+
+AlarmScheduler (domain -> platform bridge)
+
+For each AlarmInstance, schedule via AlarmManager.setExactAndAllowWhileIdle(...).
+
+Store alarm metadata in Room for recovery after reboot.
+
+3.3.2 Boot & Time Changes
+
+BroadcastReceiver:
+
+BOOT_COMPLETED
+
+TIME_SET
+
+TIMEZONE_CHANGED
+
+On these events, re-query DB and re-schedule future alarms.
+
+3.3.3 Alarm Trigger Path
+
+When an alarm fires:
+
+AlarmBroadcastReceiver receives the intent.
+
+It:
+
+Starts AlarmService as foreground service (with persistent notification).
+
+Launches AlarmActivity (full-screen, show alarm UI) with:
+
+Flags to wake and show over lock screen (setShowWhenLocked, setTurnScreenOn, full-screen intent).
+
+AlarmService:
+
+Starts vibration pattern (via Vibrator)
+
+Starts audio playback:
+
+Local sound (default)
+
+Or Spotify (if profile uses it and user is authenticated)
+
+AlarmActivity:
+
+Displays:
+
+Route/label
+
+Alarm type (“Wake up”, etc.)
+
+Controls:
+
+“Dismiss”
+
+“Snooze” (optional)
+
+For alarms with requiresUserDismiss = false:
+
+Show countdown until auto-stop.
+
+Stop logic:
+
+Dismiss:
+
+Stops audio + vibration via service
+
+Stops foreground service
+
+Finishes full-screen Activity
+
+Auto-stop:
+
+AlarmService self-stops after autoStopAfterMillis if requiresUserDismiss=false.
+
+3.4 Spotify Integration
+
+Spotify is optional but supported via profiles.
+
+3.4.1 Capabilities
+
+Use Spotify Android SDK:
+
+Authenticate user with Spotify
+
+Store tokens securely
+
+Start playback of a selected track/playlist at alarm time
+
+Constraints:
+
+Spotify must be installed and user logged in.
+
+Network connection needed for streaming.
+
+Fallback to local sound if:
+
+No Spotify
+
+Token invalid
+
+No network
+
+Playback error
+
+3.4.2 Alarm Profiles
+
+AlarmProfile:
+
+id
+
+name
+
+type: LOCAL_SOUND | SPOTIFY_TRACK | SPOTIFY_PLAYLIST
+
+For local:
+
+resId or file URI
+
+For Spotify:
+
+spotifyUri: e.g. spotify:track:... or spotify:playlist:...
+
+Volume / fade-in options (optional v1)
+
+Settings screen:
+
+Allow user to:
+
+Connect/disconnect Spotify
+
+Choose default profiles for:
+
+WAKE_UP
+
+GET_OUT_OF_BED
+
+LEAVE_HOME
+
+SpotifyRepository:
+
+Handles:
+
+Auth flow (launch Spotify login)
+
+Token storage/refresh
+
+Play/pause/stop commands
+
+AlarmService:
+
+At alarm start:
+
+If profile type is Spotify and available:
+
+Initialize Spotify SDK client
+
+Start playback of spotifyUri
+
+Else:
+
+Fallback local sound
+
+3.5 Open in Google Maps
+
+From journey screen or notification:
+
+Intent:
+
+Use Maps URL:
+
+https://www.google.com/maps/dir/?api=1&origin=...&destination=...&travelmode=transit
+
+Launch via startActivity.
+
+We do not try to match the exact itinerary chosen earlier; Maps re-computes best route at time of use.
+
+4. Non-Functional Requirements
+4.1 Reliability & Behaviour
+
+Use SCHEDULE_EXACT_ALARM permission on Android 12+.
+
+Use full-screen intent & notifications for alarm channels.
+
+Provide in-app instructions to:
+
+Disable battery optimisations for the app
+
+Keep notifications enabled for alarm channel
+
+4.2 Performance
+
+Alarm triggering path must:
+
+Show full-screen UI within ~500ms of AlarmManager firing.
+
+Cold starts from alarm event must be tested explicitly.
+
+4.3 Privacy & Security
+
+Do not log raw Spotify tokens.
+
+Store tokens in encrypted storage (e.g. EncryptedSharedPreferences).
+
+Google API keys must be secured (restrict by Android app signature + package).
+
+5. Data Model (Sketch)
+data class Journey(
+    val id: Long,
+    val origin: Place,
+    val destination: Place,
+    val selectedRoute: Route,
+    val departureTime: Instant
+)
+
+data class Route(
+    val id: String,
+    val summary: String,
+    val departureTime: Instant,
+    val arrivalTime: Instant,
+    val legs: List<Leg>
+)
+
+data class Leg(
+    val type: LegType, // WALK, BUS, TRAIN, etc.
+    val from: Stop?,
+    val to: Stop?,
+    val durationMinutes: Int,
+    val lineName: String? // for transit legs
+)
+
+data class AlarmInstance(
+    val id: Long,
+    val journeyId: Long?,
+    val scheduledTime: Instant,
+    val type: AlarmType,
+    val profileId: Long,
+    val requiresUserDismiss: Boolean,
+    val autoStopAfterMillis: Long?,
+    val label: String
+)
+
+data class AlarmProfile(
+    val id: Long,
+    val name: String,
+    val source: AlarmSource, // LOCAL, SPOTIFY_TRACK, SPOTIFY_PLAYLIST
+    val localResName: String?, // for LOCAL
+    val spotifyUri: String? // for SPOTIFY_*
+)
+
+6. Screen List (for Dev/LLM)
+
+Onboarding
+
+Explain purpose
+
+Request permissions:
+
+Location
+
+Notifications
+
+Exact alarms (if needed)
+
+Optional: prompt to disable battery optimisation
+
+Home / Journey Planner
+
+Origin input (chip + "Use current location")
+
+Destination input (Places Autocomplete)
+
+Time selector (leave now / arrive by / depart at)
+
+“Find routes” button
+
+Route List
+
+List of 2–5 route options
+
+Each: depart/arrive, duration, summary
+
+Tap → Route details
+
+Route Details & Alarm Setup
+
+Route timeline view
+
+Generated alarms view:
+
+“Wake up at 06:45” (profile: Chill Playlist)
+
+“Get out of bed at 07:00” (profile: Aggressive Song)
+
+“Leave home at 07:40” (profile: Bus Rush)
+
+Button: “Save & schedule alarms”
+
+Button: “Open in Google Maps now”
+
+Active Alarms List
+
+Upcoming alarms with type, time, profile
+
+Edit/cancel individual alarms
+
+Settings
+
+Default alarm offsets per stage
+
+Spotify connect/disconnect
+
+Default profiles per stage
+
+Battery optimisation instructions
+
+Full-Screen Alarm Activity
+
+Large label: “Leave for train”
+
+Time / route context
+
+Big buttons:
+
+Dismiss
+
+Snooze (if enabled)
+
+7. Explicit Non-Goals (v1)
+
+No live tracking along the route.
+
+No “alarm when 2 stops before your station” (that’s a v2 feature with GPS + route mapping).
+
+No iOS support.
+
+No multi-user/sync.
+
+No calendar integration (for v1).
+
+No OTA-style code-push; updates through Play Store.
+
+8. Key Implementation Priorities
+
+Native Alarm Engine (AlarmManager + foreground service + full-screen activity + channels).
+
+Local audio alarm profiles, well-tested.
+
+Robust fallback behaviour for Spotify-based alarms.
+
+Stable routing integration with Google (transit mode).
+
+Clean, focused Compose UI that makes it obvious when you need to leave. Using the Visual Identity document

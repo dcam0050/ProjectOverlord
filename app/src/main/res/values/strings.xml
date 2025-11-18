@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Overlord</string>
+    
+    <!-- Onboarding -->
+    <string name="onboarding_title">Never Miss Your Transit</string>
+    <string name="onboarding_description">Plan your journey and set multi-stage alarms to ensure you\'re on time.</string>
+    
+    <!-- Permissions -->
+    <string name="permission_location_title">Location Permission</string>
+    <string name="permission_location_description">We need your location to find nearby transit stops and plan routes.</string>
+    <string name="permission_notification_title">Notification Permission</string>
+    <string name="permission_notification_description">Notifications are required for alarm functionality.</string>
+    <string name="permission_exact_alarm_title">Exact Alarm Permission</string>
+    <string name="permission_exact_alarm_description">We need exact alarm permission to wake you up at the right time.</string>
+    
+    <!-- Home Screen -->
+    <string name="origin">Origin</string>
+    <string name="destination">Destination</string>
+    <string name="use_current_location">Use Current Location</string>
+    <string name="find_routes">Find Routes</string>
+    <string name="leave_now">Leave Now</string>
+    <string name="arrive_by">Arrive By</string>
+    <string name="depart_at">Depart At</string>
+    
+    <!-- Route List -->
+    <string name="routes_found">Routes Found</string>
+    <string name="no_routes">No routes found</string>
+    
+    <!-- Alarm Setup -->
+    <string name="wake_up">Wake Up</string>
+    <string name="get_out_of_bed">Get Out of Bed</string>
+    <string name="leave_home">Leave Home</string>
+    <string name="save_and_schedule">Save &amp; Schedule Alarms</string>
+    <string name="open_in_maps">Open in Google Maps</string>
+    
+    <!-- Alarm Screen -->
+    <string name="dismiss">Dismiss</string>
+    <string name="snooze">Snooze</string>
+    <string name="alarm_auto_stop">Auto-stopping in %1$d seconds</string>
+    
+    <!-- Settings -->
+    <string name="settings">Settings</string>
+    <string name="default_alarm_offsets">Default Alarm Offsets</string>
+    <string name="spotify_integration">Spotify Integration</string>
+    <string name="connect_spotify">Connect Spotify</string>
+    <string name="disconnect_spotify">Disconnect Spotify</string>
+    <string name="battery_optimization">Battery Optimization</string>
+    <string name="disable_battery_optimization">Disable Battery Optimization</string>
+    
+    <!-- Errors -->
+    <string name="error_network">Network error. Please check your connection.</string>
+    <string name="error_no_routes">No routes found for this journey.</string>
+    <string name="error_location">Unable to get your location.</string>
+    <string name="error_spotify">Spotify error. Falling back to local sound.</string>
+    
+    <!-- Google Maps API Key placeholder -->
+    <!-- Actual key is loaded from BuildConfig.GOOGLE_MAPS_API_KEY at runtime -->
+    <string name="google_maps_api_key">YOUR_API_KEY_HERE</string>
+</resources>
+

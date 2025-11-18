@@ -1,0 +1,294 @@
+For what you want – “sick professional but somewhat playful” – the stack you should lean on is:
+
+Material 3 (M3) theming
+
+A custom color scheme (not just the default purple)
+
+Rounded shapes + subtle motion for the playful bit
+
+Clean typography + lots of whitespace for the professional bit
+
+I’ll give you:
+
+What concepts to use in Compose (themes, tokens)
+
+A concrete visual direction you can hand to LLMs/devs
+
+Example MaterialTheme setup in code
+
+A few “don’ts” so the app doesn’t look like a student project
+
+1. The levers you actually have in Jetpack Compose
+
+In Compose, your main visual dials are:
+
+MaterialTheme.colorScheme
+
+MaterialTheme.typography
+
+MaterialTheme.shapes
+
+Component style overrides (e.g. buttons, cards)
+
+Motion: animate*AsState, transitions, navigation animations
+
+Everything “pro” comes from consistent use of these, not inventing ad-hoc styles per screen.
+
+Material 3 (you want this)
+
+Use the Material 3 libraries (material3), not the old M2 ones. That gives you:
+
+Color roles: primary, secondary, tertiary, surface, background, outline, error…
+
+Built-in dark/light theming
+
+Components that already look modern if you don’t butcher them.
+
+You define a light and dark ColorScheme and pass it into MaterialTheme.
+
+2. Visual direction for “professional but playful”
+
+Let’s make this concrete so you can brief an LLM:
+
+Color strategy
+
+Base palette: cool/neutral for the serious part
+
+Backgrounds: near-white → very dark grey
+
+Surfaces: subtle elevation (light greys)
+
+Accent palette: slightly neon / saturated for the playful part
+
+primary: an electric teal or blue-green
+
+secondary: a soft purple/magenta
+
+tertiary: warm accent (salmon/orange) reserved for special CTAs or warnings-that-aren’t-errors
+
+Conceptually:
+
+Professional: the background, text, card surfaces
+
+Playful: the primary/secondary accents, micro-animations, and icons
+
+Shapes
+
+Use rounded corners, but don’t go full bubble-gum:
+
+Cards: 16–20 dp corner radius
+
+Buttons: 20–24 dp
+
+TextFields/Chips: pill-shaped for key actions
+
+Typography
+
+One serious, clean typeface (e.g. the default Roboto / Google Sans if available) with:
+
+Big, bold headlines (24–32sp)
+
+Medium-weight subheadings
+
+Body text at 14–16sp, high line height
+
+The “playful” comes more from layout + color + icons than from silly fonts.
+
+Motion
+
+Subtle, not carnival:
+
+Slight scale/alpha on button press
+
+Fade/slide transitions between screens
+
+Animated numbers/times when alarms change
+
+3. Example: Theme spec you can hand to devs/LLMs
+
+Here’s a starting point for your theme definition (pseudo-brand, tweak values as you like):
+
+// Colors
+val md_theme_light_primary = Color(0xFF00B8D9)   // Electric teal
+val md_theme_light_onPrimary = Color(0xFFFFFFFF)
+val md_theme_light_secondary = Color(0xFF7B61FF) // Playful purple
+val md_theme_light_onSecondary = Color(0xFFFFFFFF)
+val md_theme_light_tertiary = Color(0xFFFF9F66)  // Warm accent (sparingly)
+val md_theme_light_background = Color(0xFF0B0C10) // Very dark for hero screens OR flip if you prefer light
+val md_theme_light_surface = Color(0xFF11141C)
+val md_theme_light_onBackground = Color(0xFFE6ECFF)
+val md_theme_light_onSurface = Color(0xFFE6ECFF)
+val md_theme_light_outline = Color(0xFF2E3340)
+
+// Dark theme could invert or tweak these; just keep contrast high.
+
+
+Then your ColorScheme:
+
+private val LightColorScheme = lightColorScheme(
+    primary = md_theme_light_primary,
+    onPrimary = md_theme_light_onPrimary,
+    secondary = md_theme_light_secondary,
+    onSecondary = md_theme_light_onSecondary,
+    tertiary = md_theme_light_tertiary,
+    background = Color(0xFFF7F8FC),
+    onBackground = Color(0xFF11141C),
+    surface = Color(0xFFFFFFFF),
+    onSurface = Color(0xFF11141C),
+    outline = Color(0xFFCBD2E0),
+    error = Color(0xFFB00020),
+    onError = Color.White,
+)
+
+
+Shapes:
+
+val AppShapes = Shapes(
+    extraSmall = RoundedCornerShape(8.dp),
+    small = RoundedCornerShape(12.dp),
+    medium = RoundedCornerShape(16.dp),
+    large = RoundedCornerShape(24.dp),  // Cards, bottom sheets
+    extraLarge = RoundedCornerShape(32.dp) // Special hero cards, big CTAs
+)
+
+
+Typography (rough sketch):
+
+val AppTypography = Typography(
+    headlineLarge = TextStyle(
+        fontSize = 32.sp,
+        fontWeight = FontWeight.SemiBold,
+        letterSpacing = 0.sp
+    ),
+    headlineMedium = TextStyle(
+        fontSize = 24.sp,
+        fontWeight = FontWeight.SemiBold
+    ),
+    titleMedium = TextStyle(
+        fontSize = 18.sp,
+        fontWeight = FontWeight.Medium
+    ),
+    bodyLarge = TextStyle(
+        fontSize = 16.sp,
+        fontWeight = FontWeight.Normal,
+        lineHeight = 22.sp
+    ),
+    bodyMedium = TextStyle(
+        fontSize = 14.sp,
+        fontWeight = FontWeight.Normal,
+        lineHeight = 20.sp
+    ),
+    labelLarge = TextStyle(
+        fontSize = 14.sp,
+        fontWeight = FontWeight.SemiBold
+    )
+)
+
+
+And the theme:
+
+@Composable
+fun TransitAlarmTheme(
+    darkTheme: Boolean = isSystemInDarkTheme(),
+    content: @Composable () -> Unit
+) {
+    val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
+
+    MaterialTheme(
+        colorScheme = colorScheme,
+        typography = AppTypography,
+        shapes = AppShapes,
+        content = content
+    )
+}
+
+
+After that, everything in your app uses MaterialTheme:
+
+Buttons: Button(colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary))
+
+Backgrounds: Modifier.background(MaterialTheme.colorScheme.background)
+
+Cards: shape = MaterialTheme.shapes.large
+
+That’s how you keep it cohesive.
+
+4. Specific visual guidelines for your app
+
+Give LLM workers something like this:
+
+Primary layout style
+
+Lots of vertical spacing between sections (16–24dp)
+
+Use Cards for “Journeys”, “Alarms”, “Profiles”
+
+Max 1–2 accent colors per screen
+
+Home / Planner screen
+
+Top hero area:
+
+Big text: “Where are you going?”
+
+Subtext in secondary color
+
+Two cards:
+
+Origin card (chip-style: “Use current location” + address text)
+
+Destination card (text field with icon)
+
+Primary CTA button in primary color, full-width, rounded
+
+Alarm summary screen
+
+Timeline style:
+
+Vertical line (outline color)
+
+Dots for each alarm (primary color)
+
+Each alarm is a card with:
+
+Big time (e.g., “07:40”)
+
+Label (“Leave for Paddington train”)
+
+Profile chip (Spotify icon + playlist name)
+
+Full-screen alarm
+
+Dark/low-distraction background (e.g. background or a gradient using primary+secondary)
+
+Center:
+
+Huge time & label
+
+Bottom:
+
+Large pill buttons:
+
+“Dismiss” (error/tertiary)
+
+“Snooze” (secondary)
+
+Background glow/accent ring behind main content for the “sick” look.
+
+You can literally say to your LLM workers:
+
+Use large cards with 16–24dp padding, 16–20dp corner radius, and minimal borders, relying on elevation and contrast instead of heavy outlines.
+
+5. Things to explicitly forbid (so they don’t wreck the look)
+
+Tell them not to:
+
+Mix more than 3 main colors on a single screen.
+
+Use all caps everywhere (keep it for small labels at most).
+
+Add drop shadows on everything – use elevation sparingly.
+
+Use multiple font families.
+
+Use different corner radii arbitrarily; stick to MaterialTheme.shapes.
