@@ -23,9 +23,17 @@ import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.lifecycleScope
-import com.productions666.overlord.presentation.screen.AlarmTestScreen
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import com.productions666.overlord.data.model.Route
+import com.productions666.overlord.presentation.screen.JourneyPlannerScreen
 import com.productions666.overlord.presentation.screen.PermissionRequestScreen
+import com.productions666.overlord.presentation.screen.RouteListScreen
 import com.productions666.overlord.presentation.theme.OverlordTheme
+import com.productions666.overlord.presentation.viewmodel.JourneyPlannerViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -229,8 +237,42 @@ private fun MainContent(
             }
         )
     } else {
-        // All permissions granted - show main app
-        AlarmTestScreen()
+        // All permissions granted - show main app with navigation
+        AppNavigation()
+    }
+}
+
+@Composable
+private fun AppNavigation() {
+    val navController = rememberNavController()
+    val viewModel: JourneyPlannerViewModel = viewModel()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    
+    NavHost(
+        navController = navController,
+        startDestination = "journey_planner"
+    ) {
+        composable("journey_planner") {
+            JourneyPlannerScreen(
+                viewModel = viewModel,
+                onRoutesFound = { routes ->
+                    // Navigate to route list when routes are found
+                    navController.navigate("route_list")
+                }
+            )
+        }
+        
+        composable("route_list") {
+            RouteListScreen(
+                routes = uiState.routes,
+                onRouteSelected = { route ->
+                    // Handle route selection - navigate to route details or alarm setup
+                    // For now, just navigate back (will be implemented later)
+                    navController.popBackStack()
+                },
+                onBack = { navController.popBackStack() }
+            )
+        }
     }
 }
 
