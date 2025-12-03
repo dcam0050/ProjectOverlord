@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.productions666.overlord.data.model.Place
 import com.productions666.overlord.data.model.Route
 import com.productions666.overlord.data.repository.RoutingRepository
+import com.productions666.overlord.presentation.components.TimeMode
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -15,21 +16,58 @@ import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.ZoneId
 
+/**
+ * JourneyPlannerUiState — Trainline-inspired UX state
+ * 
+ * Key changes from v1:
+ * - Destination-first (user thinks "where do I need to be?")
+ * - Origin defaults to Home (most journeys start from home)
+ * - TimeMode defaults to ARRIVE_BY (the question is "when do I need to arrive?")
+ * - Removed LEAVE_NOW option (doesn't make sense for journey planning)
+ * 
+ * @param destination Primary input - where is the user going?
+ * @param origin Secondary input - where are they leaving from? (defaults to Home)
+ * @param homeAddress User's saved home address
+ * @param timeMode ARRIVE_BY (default) or DEPART_AT
+ * @param selectedDate Date of journey (defaults to today)
+ * @param selectedTime Target arrival/departure time
+ * @param showTimePicker Whether to show the time picker bottom sheet
+ * @param showDatePicker Whether to show the date picker bottom sheet
+ * @param showLocationSearch Whether to show location search
+ * @param locationSearchFocus Which field to focus in location search
+ * @param isLoading API loading state
+ * @param routes Found routes from Google Transit API
+ * @param error Error message to display
+ */
 data class JourneyPlannerUiState(
-    val origin: Place? = null,
+    // Location (destination-first)
     val destination: Place? = null,
-    val timeMode: TimeMode = TimeMode.LEAVE_NOW,
-    val selectedDate: LocalDate? = null,
-    val selectedTime: LocalTime? = null,
+    val origin: Place? = null,
+    val homeAddress: Place? = null,
+    
+    // Time (arrive-by default)
+    val timeMode: TimeMode = TimeMode.ARRIVE_BY,
+    val selectedDate: LocalDate = LocalDate.now(),
+    val selectedTime: LocalTime = LocalTime.now().plusHours(1).withMinute(0),
+    
+    // UI state
+    val showTimePicker: Boolean = false,
+    val showDatePicker: Boolean = false,
+    val showLocationSearch: Boolean = false,
+    val locationSearchFocus: LocationField = LocationField.DESTINATION,
+    
+    // API state
     val isLoading: Boolean = false,
     val routes: List<Route> = emptyList(),
     val error: String? = null
 )
 
-enum class TimeMode {
-    LEAVE_NOW,
-    ARRIVE_BY,
-    DEPART_AT
+/**
+ * Which location field is being edited
+ */
+enum class LocationField {
+    DESTINATION,  // "Where are you going?"
+    ORIGIN        // "Where are you leaving from?"
 }
 
 class JourneyPlannerViewModel(
@@ -39,20 +77,51 @@ class JourneyPlannerViewModel(
     private val _uiState = MutableStateFlow(JourneyPlannerUiState())
     val uiState: StateFlow<JourneyPlannerUiState> = _uiState.asStateFlow()
     
-    fun setOrigin(place: Place) {
-        _uiState.value = _uiState.value.copy(origin = place)
+    init {
+        // Set default origin to Home if available
+        // TODO: Load from UserPreferences DataStore
+        _uiState.value = _uiState.value.copy(
+            origin = Place(
+                name = "Home",
+                address = "Set your home address",
+                latitude = 0.0,
+                longitude = 0.0
+            )
+        )
     }
+    
+    // ========================================================================
+    // Location Actions (Destination-First)
+    // ========================================================================
     
     fun setDestination(place: Place) {
-        _uiState.value = _uiState.value.copy(destination = place)
+        _uiState.value = _uiState.value.copy(
+            destination = place,
+            showLocationSearch = false
+        )
     }
     
-    fun setTimeMode(mode: TimeMode) {
+    fun setOrigin(place: Place) {
         _uiState.value = _uiState.value.copy(
-            timeMode = mode,
-            selectedDate = if (mode == TimeMode.LEAVE_NOW) null else LocalDate.now(),
-            selectedTime = if (mode == TimeMode.LEAVE_NOW) null else LocalTime.now().plusHours(1)
+            origin = place,
+            showLocationSearch = false
         )
+    }
+    
+    fun swapLocations() {
+        val current = _uiState.value
+        _uiState.value = current.copy(
+            destination = current.origin,
+            origin = current.destination
+        )
+    }
+    
+    // ========================================================================
+    // Time Actions (Arrive-By Default)
+    // ========================================================================
+    
+    fun setTimeMode(mode: TimeMode) {
+        _uiState.value = _uiState.value.copy(timeMode = mode)
     }
     
     fun setSelectedDate(date: LocalDate) {
@@ -63,13 +132,68 @@ class JourneyPlannerViewModel(
         _uiState.value = _uiState.value.copy(selectedTime = time)
     }
     
+    fun setTimeAndMode(mode: TimeMode, time: LocalTime) {
+        _uiState.value = _uiState.value.copy(
+            timeMode = mode,
+            selectedTime = time,
+            showTimePicker = false
+        )
+    }
+    
+    // ========================================================================
+    // UI State Actions
+    // ========================================================================
+    
+    fun showLocationSearch(focus: LocationField) {
+        _uiState.value = _uiState.value.copy(
+            showLocationSearch = true,
+            locationSearchFocus = focus
+        )
+    }
+    
+    fun dismissLocationSearch() {
+        _uiState.value = _uiState.value.copy(showLocationSearch = false)
+    }
+    
+    fun showTimePicker() {
+        _uiState.value = _uiState.value.copy(showTimePicker = true)
+    }
+    
+    fun dismissTimePicker() {
+        _uiState.value = _uiState.value.copy(showTimePicker = false)
+    }
+    
+    fun showDatePicker() {
+        _uiState.value = _uiState.value.copy(showDatePicker = true)
+    }
+    
+    fun dismissDatePicker() {
+        _uiState.value = _uiState.value.copy(showDatePicker = false)
+    }
+    
+    fun confirmDateSelection(date: LocalDate) {
+        _uiState.value = _uiState.value.copy(
+            selectedDate = date,
+            showDatePicker = false
+        )
+    }
+    
+    // ========================================================================
+    // Route Finding
+    // ========================================================================
+    
     fun findRoutes() {
         val state = _uiState.value
         val origin = state.origin
         val destination = state.destination
         
-        if (origin == null || destination == null) {
-            _uiState.value = state.copy(error = "Please select both origin and destination")
+        if (destination == null) {
+            _uiState.value = state.copy(error = "Please select a destination")
+            return
+        }
+        
+        if (origin == null || origin.latitude == 0.0) {
+            _uiState.value = state.copy(error = "Please set your starting location")
             return
         }
         
@@ -77,17 +201,12 @@ class JourneyPlannerViewModel(
         
         viewModelScope.launch {
             try {
-                val arriveBy = if (state.timeMode == TimeMode.ARRIVE_BY && state.selectedDate != null && state.selectedTime != null) {
-                    LocalDateTime.of(state.selectedDate, state.selectedTime)
-                        .atZone(ZoneId.systemDefault())
-                        .toInstant()
-                } else null
+                val targetDateTime = LocalDateTime.of(state.selectedDate, state.selectedTime)
+                    .atZone(ZoneId.systemDefault())
+                    .toInstant()
                 
-                val departAt = if (state.timeMode == TimeMode.DEPART_AT && state.selectedDate != null && state.selectedTime != null) {
-                    LocalDateTime.of(state.selectedDate, state.selectedTime)
-                        .atZone(ZoneId.systemDefault())
-                        .toInstant()
-                } else null
+                val arriveBy = if (state.timeMode == TimeMode.ARRIVE_BY) targetDateTime else null
+                val departAt = if (state.timeMode == TimeMode.DEPART_AT) targetDateTime else null
                 
                 val result = routingRepository.findTransitRoutes(
                     origin = origin,

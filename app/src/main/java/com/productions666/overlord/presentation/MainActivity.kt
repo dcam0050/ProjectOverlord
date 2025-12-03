@@ -10,6 +10,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
@@ -17,8 +18,10 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -29,9 +32,17 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.productions666.overlord.data.model.Route
+import com.productions666.overlord.data.preferences.AppFont
+import com.productions666.overlord.data.preferences.UserPreferencesRepository
+import com.productions666.overlord.presentation.navigation.Routes
+import com.productions666.overlord.presentation.screen.AlarmTestScreen
+import com.productions666.overlord.presentation.screen.FontSelectionScreen
+import com.productions666.overlord.presentation.screen.HomeScreen
 import com.productions666.overlord.presentation.screen.JourneyPlannerScreen
 import com.productions666.overlord.presentation.screen.PermissionRequestScreen
 import com.productions666.overlord.presentation.screen.RouteListScreen
+import com.productions666.overlord.presentation.screen.SettingsScreen
+import com.productions666.overlord.presentation.screen.createSampleJourneys
 import com.productions666.overlord.presentation.theme.OverlordTheme
 import com.productions666.overlord.presentation.viewmodel.JourneyPlannerViewModel
 import kotlinx.coroutines.delay
@@ -74,7 +85,14 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         
         setContent {
-            OverlordTheme {
+            // Get font preference from DataStore
+            val context = LocalContext.current
+            val preferencesRepository = remember { UserPreferencesRepository.getInstance(context) }
+            val selectedFont by preferencesRepository.selectedFontFlow.collectAsStateWithLifecycle(
+                initialValue = AppFont.LEXEND
+            )
+            
+            OverlordTheme(selectedFont = selectedFont) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
@@ -88,7 +106,9 @@ class MainActivity : ComponentActivity() {
                         openOverlaySettings = { openOverlaySettings() },
                         onPermissionUpdateRequested = {
                             permissionUpdateCallback = it
-                        }
+                        },
+                        preferencesRepository = preferencesRepository,
+                        currentFont = selectedFont
                     )
                 }
             }
@@ -153,9 +173,11 @@ private fun MainContent(
     openExactAlarmSettings: () -> Unit,
     openFullScreenIntentSettings: () -> Unit,
     openOverlaySettings: () -> Unit,
-    onPermissionUpdateRequested: (() -> Unit) -> Unit
+    onPermissionUpdateRequested: (() -> Unit) -> Unit,
+    preferencesRepository: UserPreferencesRepository,
+    currentFont: AppFont
 ) {
-    val context = androidx.compose.ui.platform.LocalContext.current
+    val context = LocalContext.current
     
     var hasNotificationPermission by remember {
         mutableStateOf(PermissionHandler.hasNotificationPermission(context))
@@ -238,41 +260,151 @@ private fun MainContent(
         )
     } else {
         // All permissions granted - show main app with navigation
-        AppNavigation()
+        AppNavigation(
+            preferencesRepository = preferencesRepository,
+            currentFont = currentFont
+        )
     }
 }
 
 @Composable
-private fun AppNavigation() {
+private fun AppNavigation(
+    preferencesRepository: UserPreferencesRepository,
+    currentFont: AppFont
+) {
     val navController = rememberNavController()
     val viewModel: JourneyPlannerViewModel = viewModel()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val scope = rememberCoroutineScope()
     
-    NavHost(
-        navController = navController,
-        startDestination = "journey_planner"
-    ) {
-        composable("journey_planner") {
-            JourneyPlannerScreen(
-                viewModel = viewModel,
-                onRoutesFound = { routes ->
-                    // Navigate to route list when routes are found
-                    navController.navigate("route_list")
+    // Track current route for navigation highlighting
+    val currentRoute by navController.currentBackStackEntryFlow.collectAsStateWithLifecycle(null)
+    val currentDestination = currentRoute?.destination?.route
+    
+    // Sample journeys for testing (will be replaced with real data from ViewModel)
+    val sampleJourneys = remember { createSampleJourneys() }
+    
+    com.productions666.overlord.presentation.navigation.OverlordScaffold(
+        title = getScreenTitle(currentDestination),
+        currentRoute = currentDestination,
+        onNavigate = { route ->
+            // Handle sidebar navigation
+            when (route) {
+                "home" -> navController.navigate(route) {
+                    popUpTo("home") { inclusive = true }
+                    launchSingleTop = true
                 }
-            )
-        }
-        
-        composable("route_list") {
-            RouteListScreen(
-                routes = uiState.routes,
-                onRouteSelected = { route ->
-                    // Handle route selection - navigate to route details or alarm setup
-                    // For now, just navigate back (will be implemented later)
-                    navController.popBackStack()
-                },
-                onBack = { navController.popBackStack() }
-            )
+                "journeys" -> navController.navigate("journey_planner") {
+                    popUpTo("home")
+                    launchSingleTop = true
+                }
+                "settings" -> navController.navigate("settings") {
+                    launchSingleTop = true
+                }
+                "alarm_test" -> navController.navigate("alarm_test") {
+                    launchSingleTop = true
+                }
+                // Not yet implemented - ignore navigation
+                "tasks", "notes", "account", "support" -> {
+                    // TODO: Implement these screens
+                }
+                else -> {
+                    // Fallback: ignore undefined routes
+                }
+            }
+        },
+        showTopBar = shouldShowTopBar(currentDestination)
+    ) { paddingValues ->
+        NavHost(
+            navController = navController,
+            startDestination = "home",
+            modifier = Modifier.padding(paddingValues)
+        ) {
+            composable("home") {
+                HomeScreen(
+                    upcomingJourneys = sampleJourneys,
+                    onPlanNewJourney = {
+                        navController.navigate("journey_planner")
+                    },
+                    onViewJourneyDetails = { _ ->
+                        // TODO: Navigate to journey details
+                    },
+                    onEditJourney = { _ ->
+                        // TODO: Navigate to edit journey
+                    },
+                    onCancelJourney = { _ ->
+                        // TODO: Show cancel confirmation dialog
+                    }
+                )
+            }
+            
+            composable("journey_planner") {
+                JourneyPlannerScreen(
+                    viewModel = viewModel,
+                    onRoutesFound = { _ ->
+                        // Navigate to route list when routes are found
+                        navController.navigate("route_list")
+                    }
+                )
+            }
+            
+            composable("route_list") {
+                RouteListScreen(
+                    routes = uiState.routes,
+                    onRouteSelected = { _ ->
+                        // Handle route selection - navigate to alarm setup
+                        // For now, just navigate back (will be implemented later)
+                        navController.popBackStack()
+                    },
+                    onBack = { navController.popBackStack() }
+                )
+            }
+            
+            composable("settings") {
+                SettingsScreen(
+                    currentFont = currentFont,
+                    onFontSelectionClick = {
+                        navController.navigate(Routes.FONT_SELECTION)
+                    },
+                    onAlarmTestClick = {
+                        navController.navigate("alarm_test")
+                    }
+                )
+            }
+            
+            composable(Routes.FONT_SELECTION) {
+                FontSelectionScreen(
+                    currentFont = currentFont,
+                    onFontSelected = { font ->
+                        scope.launch {
+                            preferencesRepository.setSelectedFont(font)
+                        }
+                    },
+                    onBack = { navController.popBackStack() }
+                )
+            }
+            
+            composable("alarm_test") {
+                AlarmTestScreen()
+            }
         }
     }
 }
 
+private fun getScreenTitle(route: String?): String {
+    return when (route) {
+        "home" -> "Overlord"
+        "journey_planner", "journeys" -> "Journey Planner"
+        "route_list" -> "Select Route"
+        "settings" -> "Settings"
+        Routes.FONT_SELECTION -> "Fonts"
+        "alarm_test" -> "Alarm Test"
+        "tasks" -> "Tasks"
+        "notes" -> "Notes"
+        else -> "Overlord"
+    }
+}
+
+private fun shouldShowTopBar(route: String?): Boolean {
+    return true // Always show for now
+}
