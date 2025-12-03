@@ -25,7 +25,7 @@ import kotlinx.coroutines.launch
         ScheduledJourneyEntity::class,
         ScheduledAlarmEntity::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -138,6 +138,15 @@ abstract class OverlordDatabase : RoomDatabase() {
                 database.execSQL("CREATE INDEX IF NOT EXISTS index_scheduled_alarms_scheduledTime ON scheduled_alarms(scheduledTime)")
             }
         }
+        
+        private val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                // Add gap relationship columns to alarm_templates
+                database.execSQL("ALTER TABLE alarm_templates ADD COLUMN referenceAlarmSortOrder INTEGER")
+                database.execSQL("ALTER TABLE alarm_templates ADD COLUMN gapMinutes INTEGER")
+                database.execSQL("ALTER TABLE alarm_templates ADD COLUMN gapIsBefore INTEGER NOT NULL DEFAULT 1")
+            }
+        }
 
         fun getDatabase(context: Context, scope: CoroutineScope? = null): OverlordDatabase {
             return INSTANCE ?: synchronized(this) {
@@ -146,7 +155,7 @@ abstract class OverlordDatabase : RoomDatabase() {
                     OverlordDatabase::class.java,
                     "overlord_database"
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                     .addCallback(DatabaseCallback(scope))
                     .build()
                 INSTANCE = instance

@@ -175,7 +175,7 @@ Home Screen (Dashboard)
 
 ## Current Phase
 
-### 🔄 Phase 5: Journey Planner Refactor (In Progress)
+### ✅ Phase 5: Journey Planner Refactor (Complete)
 **Goal:** Implement Trainline-style UX with destination-first input
 
 **Completed:**
@@ -186,21 +186,57 @@ Home Screen (Dashboard)
 - ✅ `JourneyPlannerViewModel` refactored — New state shape, Arrive-by default
 - ✅ `JourneyPlannerScreen` refactored — Uses new components
 
-**Still needed:**
+**Deferred to Phase 6:**
 - 🔲 Google Places API integration (LocationSearchScreen)
 - 🔲 Save/load Home address from UserPreferences
 - 🔲 Recent places in location search
 
-**New files created:**
+---
+
+### ✅ Phase 7: Alarm Setup Screen (Complete)
+**Goal:** Profile selection and alarm customization after route selection
+
+**Completed:**
+- ✅ `AlarmSetupViewModel.kt` — State management for alarm setup flow
+- ✅ `JourneySummaryCard.kt` — Route summary display
+- ✅ `ProfileSelectionBottomSheet.kt` — Profile selection with preview
+- ✅ `ProfileSelectionCard.kt` — Compact profile display card
+- ✅ `AlarmRowItem.kt` — Individual alarm row with toggle, time, label editing
+- ✅ `AlarmReviewList.kt` — List of all alarms
+- ✅ `AlarmTimeAdjustBottomSheet.kt` — Quick adjust alarm times
+- ✅ `AlarmLabelEditDialog.kt` — Edit alarm labels
+- ✅ `AlarmSetupScreen.kt` — Main alarm setup screen
+- ✅ Navigation wired up from RouteListScreen → AlarmSetupScreen → Home
+
+**Files created:**
 ```
+presentation/viewmodel/
+└── AlarmSetupViewModel.kt       (state management)
+
 presentation/components/
-├── WhereCard.kt              (destination-first input)
-├── ArriveByCard.kt           (time/date selection)
-├── TimePickerBottomSheet.kt  (modal time picker)
-└── DatePickerBottomSheet.kt  (modal date picker)
+├── JourneySummaryCard.kt        (route summary)
+├── ProfileSelectionBottomSheet.kt (profile picker)
+└── AlarmRowItem.kt              (alarm row + editing components)
+
+presentation/screen/
+└── AlarmSetupScreen.kt          (main screen)
 ```
 
-**Reference:** See `JOURNEY_PLANNER_UX_REDESIGN.md` for full specification
+**Features implemented:**
+- Profile selection from database-seeded templates
+- Auto-calculation of alarm times based on departure
+- Toggle individual alarms on/off
+- Quick-adjust alarm times (+/- 5, 15, 30 minutes)
+- Edit alarm labels
+- Schedule all alarms to database
+- Navigation flow: Journey Planner → Route List → Alarm Setup → Home
+
+**Still needed (future phases):**
+- 🔲 Spotify integration for alarm sounds
+- 🔲 Sound picker bottom sheet
+- 🔲 Duplicate & Edit profile flow
+- 🔲 Create new profile from scratch
+- 🔲 Actual AlarmManager scheduling (fires Android alarms)
 
 ---
 
@@ -218,19 +254,6 @@ presentation/components/
 - `presentation/screen/LocationSearchScreen.kt`
 
 **API key:** Already configured in `local.properties` as `GOOGLE_MAPS_API_KEY`
-
----
-
-### 🔲 Phase 7: Alarm Setup Screen
-**Goal:** Profile selection and alarm customization after route selection
-
-**Features needed:**
-- Profile selection with "Duplicate & Edit" option
-- Per-alarm customization (toggle, adjust time, edit label, change sound)
-- Spotify integration for alarm sounds
-- Schedule all alarms button
-
-**Reference:** See Section 3.4-3.9 in `JOURNEY_PLANNER_UX_REDESIGN.md`
 
 ---
 

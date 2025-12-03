@@ -50,7 +50,11 @@ data class AlarmTemplateEntity(
     val soundName: String? = null,              // Display name for the sound
     val requiresUserDismiss: Boolean = true,
     val autoStopAfterMinutes: Int? = null,      // Null = never auto-stop
-    val vibrationEnabled: Boolean = true
+    val vibrationEnabled: Boolean = true,
+    // Gap relationship fields (for alarms relative to other alarms)
+    val referenceAlarmSortOrder: Int? = null,   // Sort order of the alarm this is relative to
+    val gapMinutes: Int? = null,                // Gap in minutes from reference alarm
+    val gapIsBefore: Boolean = true             // True = before reference, False = after
 )
 
 /**

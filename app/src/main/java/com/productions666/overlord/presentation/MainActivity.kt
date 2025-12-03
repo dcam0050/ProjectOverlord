@@ -9,6 +9,9 @@ import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
@@ -28,22 +31,28 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.productions666.overlord.data.model.Route
 import com.productions666.overlord.data.preferences.AppFont
 import com.productions666.overlord.data.preferences.UserPreferencesRepository
 import com.productions666.overlord.presentation.navigation.Routes
+import com.productions666.overlord.presentation.screen.AlarmSetupScreen
 import com.productions666.overlord.presentation.screen.AlarmTestScreen
 import com.productions666.overlord.presentation.screen.FontSelectionScreen
 import com.productions666.overlord.presentation.screen.HomeScreen
 import com.productions666.overlord.presentation.screen.JourneyPlannerScreen
 import com.productions666.overlord.presentation.screen.PermissionRequestScreen
+import com.productions666.overlord.presentation.screen.ProfileEditorScreen
+import com.productions666.overlord.presentation.screen.ProfileEditorViewModel
 import com.productions666.overlord.presentation.screen.RouteListScreen
 import com.productions666.overlord.presentation.screen.SettingsScreen
 import com.productions666.overlord.presentation.screen.createSampleJourneys
 import com.productions666.overlord.presentation.theme.OverlordTheme
+import com.productions666.overlord.presentation.viewmodel.AlarmSetupViewModel
 import com.productions666.overlord.presentation.viewmodel.JourneyPlannerViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -318,7 +327,11 @@ private fun AppNavigation(
         NavHost(
             navController = navController,
             startDestination = "home",
-            modifier = Modifier.padding(paddingValues)
+            modifier = Modifier.padding(paddingValues),
+            enterTransition = { fadeIn(animationSpec = tween(150)) },
+            exitTransition = { fadeOut(animationSpec = tween(100)) },
+            popEnterTransition = { fadeIn(animationSpec = tween(150)) },
+            popExitTransition = { fadeOut(animationSpec = tween(100)) }
         ) {
             composable("home") {
                 HomeScreen(
@@ -351,9 +364,75 @@ private fun AppNavigation(
             composable("route_list") {
                 RouteListScreen(
                     routes = uiState.routes,
-                    onRouteSelected = { _ ->
-                        // Handle route selection - navigate to alarm setup
-                        // For now, just navigate back (will be implemented later)
+                    onRouteSelected = { route ->
+                        // Store selected route and navigate to alarm setup
+                        viewModel.selectRoute(route)
+                        navController.navigate("alarm_setup")
+                    },
+                    onBack = { navController.popBackStack() }
+                )
+            }
+            
+            composable("alarm_setup") {
+                val alarmSetupViewModel: AlarmSetupViewModel = viewModel()
+                val selectedRoute = uiState.selectedRoute
+                val origin = uiState.origin
+                val destination = uiState.destination
+                
+                if (selectedRoute != null && origin != null && destination != null) {
+                    AlarmSetupScreen(
+                        viewModel = alarmSetupViewModel,
+                        route = selectedRoute,
+                        origin = origin,
+                        destination = destination,
+                        onSchedulingComplete = { journeyId ->
+                            // Navigate to home and clear backstack
+                            navController.navigate("home") {
+                                popUpTo("home") { inclusive = true }
+                            }
+                            // Clear the selected route
+                            viewModel.clearSelectedRoute()
+                            viewModel.clearRoutes()
+                        },
+                        onCreateProfile = {
+                            navController.navigate("create_profile")
+                        },
+                        onEditProfile = { profileId ->
+                            navController.navigate("profile_editor/$profileId")
+                        },
+                        onBack = { navController.popBackStack() }
+                    )
+                }
+            }
+            
+            composable("create_profile") {
+                val profileEditorViewModel: ProfileEditorViewModel = viewModel()
+                ProfileEditorScreen(
+                    viewModel = profileEditorViewModel,
+                    existingProfileId = null,
+                    onSaveComplete = { profileId ->
+                        // Go back to alarm setup - the profile will auto-refresh
+                        navController.popBackStack()
+                    },
+                    onBack = { navController.popBackStack() }
+                )
+            }
+            
+            composable(
+                route = "profile_editor/{profileId}",
+                arguments = listOf(navArgument("profileId") { type = NavType.LongType })
+            ) { backStackEntry ->
+                val profileId = backStackEntry.arguments?.getLong("profileId") ?: return@composable
+                val profileEditorViewModel: ProfileEditorViewModel = viewModel()
+                ProfileEditorScreen(
+                    viewModel = profileEditorViewModel,
+                    existingProfileId = profileId,
+                    onSaveComplete = { _ ->
+                        // Go back after saving
+                        navController.popBackStack()
+                    },
+                    onDelete = {
+                        // Go back after deleting
                         navController.popBackStack()
                     },
                     onBack = { navController.popBackStack() }
@@ -396,6 +475,8 @@ private fun getScreenTitle(route: String?): String {
         "home" -> "Overlord"
         "journey_planner", "journeys" -> "Journey Planner"
         "route_list" -> "Select Route"
+        "alarm_setup" -> "Set Your Alarms"
+        "create_profile" -> "New Profile"
         "settings" -> "Settings"
         Routes.FONT_SELECTION -> "Fonts"
         "alarm_test" -> "Alarm Test"

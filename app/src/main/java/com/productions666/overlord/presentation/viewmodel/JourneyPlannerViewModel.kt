@@ -59,6 +59,7 @@ data class JourneyPlannerUiState(
     // API state
     val isLoading: Boolean = false,
     val routes: List<Route> = emptyList(),
+    val selectedRoute: Route? = null,  // Route selected for alarm setup
     val error: String? = null
 )
 
@@ -246,6 +247,14 @@ class JourneyPlannerViewModel(
     
     fun clearRoutes() {
         _uiState.value = _uiState.value.copy(routes = emptyList())
+    }
+    
+    fun selectRoute(route: Route) {
+        _uiState.value = _uiState.value.copy(selectedRoute = route)
+    }
+    
+    fun clearSelectedRoute() {
+        _uiState.value = _uiState.value.copy(selectedRoute = null)
     }
 }
 

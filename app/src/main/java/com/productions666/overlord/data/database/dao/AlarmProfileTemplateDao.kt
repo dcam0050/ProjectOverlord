@@ -116,5 +116,11 @@ interface AlarmProfileTemplateDao {
      */
     @Query("SELECT COUNT(*) FROM alarm_profile_templates WHERE isSystemDefault = 1")
     suspend fun getDefaultProfileCount(): Int
+    
+    /**
+     * Check if a profile name already exists (excluding a specific profile ID for editing)
+     */
+    @Query("SELECT COUNT(*) FROM alarm_profile_templates WHERE LOWER(name) = LOWER(:name) AND id != :excludeId")
+    suspend fun countProfilesWithName(name: String, excludeId: Long = 0): Int
 }
 
